@@ -56,21 +56,32 @@ const AudioFeedback: React.FC<AudioFeedbackProps> = ({ audioState }) => {
           <div className="flex-1 flex flex-col items-center">
             <h3 className="text-lg font-medium mb-3">Current Swar</h3>
             <div 
-              className={`swar-display w-32 h-32 rounded-full flex items-center justify-center 
-                ${audioState.clarity === 'clear'
-                  ? 'bg-status-success bg-opacity-10 border-4 border-status-success' 
-                  : audioState.clarity === 'somewhat'
-                    ? 'bg-yellow-400 bg-opacity-10 border-4 border-yellow-400'
-                    : 'bg-status-error bg-opacity-5 border-4 border-status-error'}`}
-              style={{ transition: 'all 0.3s ease' }}
+              className="swar-display w-32 h-32 rounded-full flex items-center justify-center"
+              style={{ 
+                transition: 'all 0.3s ease',
+                backgroundColor: audioState.clarity === 'clear' 
+                  ? 'rgba(34, 197, 94, 0.1)' 
+                  : audioState.clarity === 'somewhat' 
+                    ? 'rgba(245, 158, 11, 0.1)' 
+                    : 'rgba(239, 68, 68, 0.1)',
+                borderWidth: '4px',
+                borderStyle: 'solid',
+                borderColor: audioState.clarity === 'clear' 
+                  ? '#22c55e' 
+                  : audioState.clarity === 'somewhat' 
+                    ? '#f59e0b' 
+                    : '#ef4444'
+              }}
             >
               <span 
-                className={`font-display text-5xl font-bold 
-                  ${audioState.clarity === 'clear' 
-                    ? 'text-status-success' 
+                className="font-display text-5xl font-bold"
+                style={{ 
+                  color: audioState.clarity === 'clear' 
+                    ? '#22c55e' 
                     : audioState.clarity === 'somewhat' 
-                      ? 'text-yellow-500'
-                      : 'text-status-error'}`}
+                      ? '#f59e0b' 
+                      : '#ef4444' 
+                }}
               >
                 {audioState.currentSwar}
               </span>
@@ -95,29 +106,31 @@ const AudioFeedback: React.FC<AudioFeedbackProps> = ({ audioState }) => {
                   <div 
                     key={swar}
                     data-swar={swar}
-                    className={`swar-note ${isActive ? 'active' : 'inactive'} flex flex-col items-center p-2 rounded-md 
-                      ${isActive
-                        ? audioState.clarity === 'clear'
-                          ? 'bg-status-success bg-opacity-10'
-                          : audioState.clarity === 'somewhat'
-                            ? 'bg-yellow-400 bg-opacity-10'
-                            : 'bg-status-error bg-opacity-10'
-                        : 'bg-neutral-100'}`}
+                    className={`swar-note flex flex-col items-center p-2 rounded-md ${isActive ? 'active' : 'inactive'}`}
                     style={{ 
                       transition: 'transform 0.2s ease, opacity 0.2s ease',
                       transform: isActive ? 'scale(1.1)' : 'scale(0.95)',
                       opacity: isActive ? 1 : 0.5,
+                      backgroundColor: isActive
+                        ? audioState.clarity === 'clear'
+                          ? 'rgba(34, 197, 94, 0.1)'
+                          : audioState.clarity === 'somewhat'
+                            ? 'rgba(245, 158, 11, 0.1)'
+                            : 'rgba(239, 68, 68, 0.1)'
+                        : '#f3f4f6' // bg-neutral-100 equivalent
                     }}
                   >
                     <span 
-                      className={`font-display font-bold text-lg 
-                        ${isActive
+                      className="font-display font-bold text-lg"
+                      style={{
+                        color: isActive
                           ? audioState.clarity === 'clear'
-                            ? 'text-status-success'
+                            ? '#22c55e'
                             : audioState.clarity === 'somewhat'
-                              ? 'text-yellow-500'
-                              : 'text-status-error'
-                          : 'text-neutral-dark'}`}
+                              ? '#f59e0b'
+                              : '#ef4444'
+                          : '#1f2937' // text-neutral-dark equivalent
+                      }}
                     >
                       {swar}
                     </span>
