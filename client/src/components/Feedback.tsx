@@ -11,8 +11,12 @@ const Feedback: React.FC = () => {
             <line x1="12" y1="8" x2="12.01" y2="8"></line>
           </svg>
           <div>
-            <h3 className="font-medium mb-1">Practice Tip</h3>
-            <p className="text-sm">Focus on achieving a stable green indicator for each note before moving to the next. Try to maintain consistent breath control for clearer notes.</p>
+            <h3 className="font-medium mb-1">Hindustani Flute Practice Tips</h3>
+            <div className="space-y-2 text-sm">
+              <p>Focus on achieving a stable green indicator for each swar before moving to the next. Try to maintain consistent breath control for clearer notes.</p>
+              <p>Start with the <span className="font-medium">Madhya Saptak</span> (middle octave) before attempting the higher <span className="font-medium">Taar Saptak</span> or lower <span className="font-medium">Mandra Saptak</span>.</p>
+              <p>Practice the Sa-Re-Ga-Ma-Pa-Dha-Ni-Sa sequence slowly in each saptak to develop proper tone and pitch control.</p>
+            </div>
           </div>
         </div>
       </div>
