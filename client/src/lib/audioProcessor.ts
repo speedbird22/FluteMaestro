@@ -153,55 +153,82 @@ class AudioProcessor {
     rms = Math.sqrt(rms / buffer.length);
     
     // Return if signal is too low (silence)
-    if (rms < 0.01) return -1;
+    if (rms < 0.015) return -1; // Slightly increase threshold for better silence detection
     
-    // Find autocorrelation
-    let r1 = 0, r2 = buffer.length - 1;
-    const thres = 0.2;
+    // Improved YIN-like algorithm for pitch detection
+    const bufferSize = buffer.length;
+    const yinBuffer = new Float32Array(bufferSize / 2);
     
-    for (let i = 0; i < buffer.length / 2; i++) {
-      if (Math.abs(buffer[i]) < thres) {
-        r1 = i;
-        break;
+    // Step 1: Calculate difference function
+    for (let tau = 0; tau < yinBuffer.length; tau++) {
+      yinBuffer[tau] = 0;
+      for (let i = 0; i < yinBuffer.length; i++) {
+        const delta = buffer[i] - buffer[i + tau];
+        yinBuffer[tau] += delta * delta;
       }
     }
     
-    for (let i = 1; i < buffer.length / 2; i++) {
-      if (Math.abs(buffer[buffer.length - i]) < thres) {
-        r2 = buffer.length - i;
-        break;
+    // Step 2: Cumulative mean normalized difference
+    let runningSum = 0;
+    yinBuffer[0] = 1;
+    for (let tau = 1; tau < yinBuffer.length; tau++) {
+      runningSum += yinBuffer[tau];
+      yinBuffer[tau] *= tau / runningSum;
+    }
+    
+    // Step 3: Find the first minimum below threshold
+    const threshold = 0.15;
+    let minTau = 0;
+    let minVal = 1000; // arbitrary high value
+    
+    // Find the first local minimum in the normalized difference function
+    for (let tau = 2; tau < yinBuffer.length; tau++) {
+      if (yinBuffer[tau] < threshold) {
+        if (yinBuffer[tau] < yinBuffer[tau - 1] && 
+            yinBuffer[tau] < yinBuffer[tau + 1] && 
+            yinBuffer[tau] < minVal) {
+          minVal = yinBuffer[tau];
+          minTau = tau;
+          break; // Take the first good minimum we find
+        }
       }
     }
     
-    const buf1 = buffer.slice(r1, r2);
-    const correlations = new Array(buf1.length).fill(0);
-    
-    // Calculate autocorrelation
-    for (let i = 0; i < buf1.length; i++) {
-      for (let j = 0; j < buf1.length - i; j++) {
-        correlations[i] += buf1[j] * buf1[j + i];
+    // If no minimum was found
+    if (minTau === 0) {
+      // Try again with a higher threshold
+      for (let tau = 2; tau < yinBuffer.length; tau++) {
+        if (yinBuffer[tau] < minVal) {
+          minVal = yinBuffer[tau];
+          minTau = tau;
+        }
+      }
+      
+      // Still nothing good found
+      if (minTau === 0) {
+        return -1;
       }
     }
     
-    // Find the peak
-    let peak = 0;
-    for (let i = 1; i < correlations.length; i++) {
-      if (correlations[i] > correlations[peak]) {
-        peak = i;
-      }
+    // Step 4: Parabolic interpolation
+    let betterTau = minTau;
+    if (minTau > 0 && minTau < yinBuffer.length - 1) {
+      const s0 = yinBuffer[minTau - 1];
+      const s1 = yinBuffer[minTau];
+      const s2 = yinBuffer[minTau + 1];
+      const adjustment = (s2 - s0) / (2 * (2 * s1 - s0 - s2));
+      betterTau = minTau + adjustment;
     }
     
-    // Refine the peak by interpolating between the three highest points
-    let peakValue = correlations[peak];
-    let leftValue = correlations[peak - 1] || 0;
-    let rightValue = correlations[peak + 1] || 0;
+    // Convert tau to frequency
+    const resultFreq = sampleRate / betterTau;
     
-    let shift = 0;
-    if (peak > 0 && peak < correlations.length - 1) {
-      shift = (rightValue - leftValue) / (2 * (2 * peakValue - leftValue - rightValue));
+    // Filter out frequencies outside the typical flute range (200Hz to 2200Hz)
+    if (resultFreq < 200 || resultFreq > 2200) {
+      return -1;
     }
     
-    return sampleRate / (peak + shift);
+    return resultFreq;
   }
 
   private analyzeFrequency(frequency: number): { note: string, octave: number, saptak: 'Mandra' | 'Madhya' | 'Taar', isClean: boolean } {
@@ -243,37 +270,99 @@ class AudioProcessor {
     const C0 = A4 * Math.pow(2, -4.75);
     
     // Calculate how many half steps away from C0
-    const halfSteps = Math.round(12 * Math.log2(frequency / C0));
+    const exactHalfSteps = 12 * Math.log2(frequency / C0);
+    const halfSteps = Math.round(exactHalfSteps);
     
     // Calculate octave and note index
     const octave = Math.floor(halfSteps / 12);
     const noteIndex = halfSteps % 12;
     
     // Calculate cents deviation
-    const exactHalfSteps = 12 * Math.log2(frequency / C0);
     const cents = Math.round((exactHalfSteps - halfSteps) * 100);
     
+    // Apply frequency bias correction for flute (tends to run slightly sharp)
+    let correctedNoteIndex = noteIndex;
+    
+    // Handle potential index out of bounds
+    if (correctedNoteIndex < 0) correctedNoteIndex = 0;
+    if (correctedNoteIndex >= WESTERN_NOTES.length) correctedNoteIndex = WESTERN_NOTES.length - 1;
+    
+    // Apply stabilization - keep note consistent within a small cent range
+    // to prevent rapid oscillation between adjacent notes
+    const stableNote = this.getStableNote(WESTERN_NOTES[correctedNoteIndex], cents, octave);
+    
     return {
-      note: WESTERN_NOTES[noteIndex],
-      cents,
-      octave
+      note: stableNote.note,
+      cents: stableNote.cents,
+      octave: stableNote.octave
     };
   }
+  
+  // Cache for stable note detection to reduce fluttering between notes
+  private lastNote: string = '';
+  private lastOctave: number = 4;
+  private lastNoteTimestamp: number = 0;
+  private stableThreshold: number = 30; // cents threshold for note stability
+  private stabilityDelay: number = 50; // ms to require before changing notes
+  
+  private getStableNote(note: string, cents: number, octave: number): { note: string, cents: number, octave: number } {
+    const now = Date.now();
+    
+    // If this is the first note detected or significant time has passed, just return this note
+    if (!this.lastNote || now - this.lastNoteTimestamp > 300) {
+      this.lastNote = note;
+      this.lastOctave = octave;
+      this.lastNoteTimestamp = now;
+      return { note, cents, octave };
+    }
+    
+    // Check if we need to stick with the previous note (for stability)
+    if (now - this.lastNoteTimestamp < this.stabilityDelay) {
+      return { note: this.lastNote, cents, octave: this.lastOctave };
+    }
+    
+    // If the cents deviation is small enough, keep the same note
+    if (Math.abs(cents) > this.stableThreshold) {
+      // Significant deviation - update to new note
+      this.lastNote = note;
+      this.lastOctave = octave;
+    }
+    
+    this.lastNoteTimestamp = now;
+    return { note: this.lastNote, cents, octave: this.lastOctave };
+  }
 
+  // Cache for stable swar detection
+  private lastSwar: string = 'Sa';
+  private lastSwarTimestamp: number = 0;
+  
   private westernToIndianSwar(westernNote: string): string {
     // Add null check for westernNote
     if (!westernNote || typeof westernNote !== 'string') {
       return 'Sa'; // Default to Sa if no valid note is detected
     }
     
+    const now = Date.now();
+    
     // Get the base note without sharp/flat
     const baseNote = westernNote.charAt(0);
     
     // Adjust based on selected scale
-    const scaleOffset = WESTERN_NOTES.indexOf(this.currentState.selectedScale.charAt(0));
+    const scaleBase = this.currentState.selectedScale.charAt(0);
+    const scaleOffset = WESTERN_NOTES.indexOf(scaleBase);
+    
+    if (scaleOffset === -1) {
+      console.error("Invalid scale selected:", this.currentState.selectedScale);
+      return this.lastSwar; // Return the last known swar if scale is invalid
+    }
     
     // Get the index of the western note
     let noteIndex = WESTERN_NOTES.indexOf(baseNote);
+    
+    if (noteIndex === -1) {
+      console.error("Invalid note detected:", westernNote);
+      return this.lastSwar; // Return the last known swar if note is invalid
+    }
     
     // Adjust for sharps
     if (westernNote.includes('#')) {
@@ -285,28 +374,35 @@ class AudioProcessor {
     const relativeIndex = (noteIndex - scaleOffset + 12) % 12;
     
     // Map to the corresponding Indian swar
-    // In Indian classical, Sa is fixed and other notes are relative
-    // With C as reference: C=Sa, D=Re, E=Ga, F=Ma, G=Pa, A=Dha, B=Ni
-    const swarMapping = {
-      0: 'Sa',  // Scale base note = Sa
-      2: 'Re',  // 2 semitones from Sa = Re
-      4: 'Ga',  // 4 semitones from Sa = Ga
-      5: 'Ma',  // 5 semitones from Sa = Ma
-      7: 'Pa',  // 7 semitones from Sa = Pa
-      9: 'Dha', // 9 semitones from Sa = Dha
-      11: 'Ni', // 11 semitones from Sa = Ni
-    } as Record<number, string>;
+    // More complete mapping including half-notes
+    const swarMapping: Record<number, string> = {
+      0: 'Sa',     // Scale base note = Sa
+      1: 'Re♭',    // Komal Re
+      2: 'Re',     // Shuddha Re
+      3: 'Ga♭',    // Komal Ga
+      4: 'Ga',     // Shuddha Ga
+      5: 'Ma',     // Shuddha Ma
+      6: 'Ma♯',    // Tivra Ma
+      7: 'Pa',     // Shuddha Pa
+      8: 'Dha♭',   // Komal Dha
+      9: 'Dha',    // Shuddha Dha
+      10: 'Ni♭',   // Komal Ni
+      11: 'Ni'     // Shuddha Ni
+    };
     
-    // If the relativeIndex isn't exactly on a swar, return the closest one
-    // For simplicity, we'll return the lower swar and mark it as "not clean"
-    const closestSwar = Object.entries(swarMapping)
-      .reduce((closest, [index, swar]) => {
-        const currentDiff = Math.abs(Number(index) - relativeIndex);
-        const closestDiff = Math.abs(Number(closest[0]) - relativeIndex);
-        return currentDiff < closestDiff ? [index, swar] : closest;
-      }, ['0', 'Sa']);
+    // Get the Indian swar
+    const currentSwar = swarMapping[relativeIndex] || 'Sa';
     
-    return closestSwar[1];
+    // Implement stability - if changing too rapidly, keep previous swar
+    if (now - this.lastSwarTimestamp < 150 && this.lastSwar) {
+      return this.lastSwar;
+    }
+    
+    // Update the cache for stability
+    this.lastSwar = currentSwar;
+    this.lastSwarTimestamp = now;
+    
+    return currentSwar;
   }
 }
 
