@@ -16,6 +16,7 @@ export interface Swar {
 }
 
 export type SaptakType = 'Mandra' | 'Madhya' | 'Taar';
+export type ClarityLevel = 'clear' | 'somewhat' | 'unclear';
 
 export interface AudioState {
   isListening: boolean;
@@ -24,7 +25,8 @@ export interface AudioState {
   currentOctave: number;
   currentSaptak: SaptakType; // Hindustani saptak (octave) classification
   currentFrequency: number;
-  isNoteClean: boolean;
+  isNoteClean: boolean; // Backward compatibility
+  clarity: ClarityLevel; // Three-level clarity: clear (green), somewhat (yellow), unclear (red)
   audioLevels: number[];
 }
 

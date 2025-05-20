@@ -78,38 +78,50 @@ class AudioProcessor {
     this.currentState.selectedScale = scale;
   }
 
+  private lastProcessingTime: number = 0;
+  private processingInterval: number = 10; // 10ms = 0.01 seconds, as requested
+
   private processAudio = (): void => {
     if (!this.isProcessing || !this.analyser) {
       return;
     }
 
-    // Get audio data
-    this.analyser.getFloatTimeDomainData(this.dataArray);
+    const now = Date.now();
+    const elapsed = now - this.lastProcessingTime;
     
-    // Calculate audio levels for visualization
-    const audioLevels = this.calculateAudioLevels();
-    
-    // Detect pitch
-    const frequency = this.detectPitch();
-    
-    if (frequency > 0) {
-      // Determine note, octave, saptak, and clarity
-      const { note, octave, saptak, isClean } = this.analyzeFrequency(frequency);
+    // Only process audio at fixed intervals (0.01 seconds = 10ms)
+    if (elapsed >= this.processingInterval) {
+      this.lastProcessingTime = now;
       
-      this.updateCallback({
-        currentFrequency: frequency,
-        currentSwar: note,
-        currentOctave: octave,
-        currentSaptak: saptak,
-        isNoteClean: isClean,
-        audioLevels
-      });
-    } else {
-      // No clear frequency detected
-      this.updateCallback({
-        audioLevels,
-        currentFrequency: 0,
-      });
+      // Get audio data
+      this.analyser.getFloatTimeDomainData(this.dataArray);
+      
+      // Calculate audio levels for visualization
+      const audioLevels = this.calculateAudioLevels();
+      
+      // Detect pitch
+      const frequency = this.detectPitch();
+      
+      if (frequency > 0) {
+        // Determine note, octave, saptak, and clarity
+        const { note, octave, saptak, isClean, clarity } = this.analyzeFrequency(frequency);
+        
+        this.updateCallback({
+          currentFrequency: frequency,
+          currentSwar: note,
+          currentOctave: octave,
+          currentSaptak: saptak,
+          isNoteClean: isClean,
+          clarity: clarity,
+          audioLevels
+        });
+      } else {
+        // No clear frequency detected
+        this.updateCallback({
+          audioLevels,
+          currentFrequency: 0,
+        });
+      }
     }
     
     this.animationFrame = requestAnimationFrame(this.processAudio);
@@ -231,15 +243,30 @@ class AudioProcessor {
     return resultFreq;
   }
 
-  private analyzeFrequency(frequency: number): { note: string, octave: number, saptak: 'Mandra' | 'Madhya' | 'Taar', isClean: boolean } {
+  private analyzeFrequency(frequency: number): { note: string, octave: number, saptak: 'Mandra' | 'Madhya' | 'Taar', isClean: boolean, clarity: 'clear' | 'somewhat' | 'unclear' } {
     // Convert frequency to note information
     const { note, cents, octave } = this.frequencyToNote(frequency);
     
     // Convert western note to Indian swar based on selected scale
     const swar = this.westernToIndianSwar(note);
     
-    // Note is "clean" if cents deviation is small
-    const isClean = Math.abs(cents) < 30;  // Threshold for "clean" notes (±30 cents)
+    // Note clarity levels:
+    // 1. "clear" (green): cents deviation is small (< 15 cents)
+    // 2. "somewhat" (yellow): cents deviation is moderate (15-30 cents)
+    // 3. "unclear" (red): cents deviation is large (> 30 cents)
+    let clarity: 'clear' | 'somewhat' | 'unclear' = 'unclear';
+    const centsDev = Math.abs(cents);
+    
+    if (centsDev < 15) {
+      clarity = 'clear';
+    } else if (centsDev < 30) {
+      clarity = 'somewhat';
+    } else {
+      clarity = 'unclear';
+    }
+    
+    // For backward compatibility, also provide isClean
+    const isClean = clarity === 'clear';
     
     // Determine the saptak (octave classification in Hindustani music)
     // In Hindustani classical music:
@@ -260,7 +287,8 @@ class AudioProcessor {
       note: swar,
       octave,
       saptak,
-      isClean
+      isClean,
+      clarity
     };
   }
 

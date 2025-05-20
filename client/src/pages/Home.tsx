@@ -18,6 +18,7 @@ const Home: React.FC = () => {
     currentSaptak: 'Madhya', // Default is middle octave (Madhya saptak)
     currentFrequency: 0,
     isNoteClean: true,
+    clarity: 'clear', // Three-level clarity: clear, somewhat, unclear
     audioLevels: Array(32).fill(5) // Initialize with minimal height
   });
 
