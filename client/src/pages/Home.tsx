@@ -15,6 +15,7 @@ const Home: React.FC = () => {
     selectedScale: 'C',
     currentSwar: 'Sa',
     currentOctave: 4,
+    currentSaptak: 'Madhya', // Default is middle octave (Madhya saptak)
     currentFrequency: 0,
     isNoteClean: true,
     audioLevels: Array(32).fill(5) // Initialize with minimal height

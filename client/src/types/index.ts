@@ -15,11 +15,14 @@ export interface Swar {
   isClean: boolean;
 }
 
+export type SaptakType = 'Mandra' | 'Madhya' | 'Taar';
+
 export interface AudioState {
   isListening: boolean;
   selectedScale: string;
   currentSwar: string;
   currentOctave: number;
+  currentSaptak: SaptakType; // Hindustani saptak (octave) classification
   currentFrequency: number;
   isNoteClean: boolean;
   audioLevels: number[];

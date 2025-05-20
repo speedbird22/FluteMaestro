@@ -23,6 +23,16 @@ const InstructionPanel: React.FC = () => {
             <p>Green indicates clear notes, red indicates unclear or between notes</p>
           </div>
         </div>
+        
+        <div className="mt-6 border-t pt-4">
+          <h3 className="font-medium mb-2">Understanding Saptak (Octaves)</h3>
+          <p className="text-sm mb-2">In Hindustani classical music, notes are organized in three octave ranges:</p>
+          <ul className="list-disc pl-5 text-sm space-y-1">
+            <li><span className="font-medium">Mandra Saptak</span> - Lower octave</li>
+            <li><span className="font-medium">Madhya Saptak</span> - Middle octave (most common for beginning flutists)</li>
+            <li><span className="font-medium">Taar Saptak</span> - Higher octave (requires more advanced technique)</li>
+          </ul>
+        </div>
       </div>
     </section>
   );

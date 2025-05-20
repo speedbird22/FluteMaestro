@@ -93,13 +93,14 @@ class AudioProcessor {
     const frequency = this.detectPitch();
     
     if (frequency > 0) {
-      // Determine note, octave, and clarity
-      const { note, octave, isClean } = this.analyzeFrequency(frequency);
+      // Determine note, octave, saptak, and clarity
+      const { note, octave, saptak, isClean } = this.analyzeFrequency(frequency);
       
       this.updateCallback({
         currentFrequency: frequency,
         currentSwar: note,
         currentOctave: octave,
+        currentSaptak: saptak,
         isNoteClean: isClean,
         audioLevels
       });
@@ -203,7 +204,7 @@ class AudioProcessor {
     return sampleRate / (peak + shift);
   }
 
-  private analyzeFrequency(frequency: number): { note: string, octave: number, isClean: boolean } {
+  private analyzeFrequency(frequency: number): { note: string, octave: number, saptak: 'Mandra' | 'Madhya' | 'Taar', isClean: boolean } {
     // Convert frequency to note information
     const { note, cents, octave } = this.frequencyToNote(frequency);
     
@@ -213,9 +214,25 @@ class AudioProcessor {
     // Note is "clean" if cents deviation is small
     const isClean = Math.abs(cents) < 30;  // Threshold for "clean" notes (±30 cents)
     
+    // Determine the saptak (octave classification in Hindustani music)
+    // In Hindustani classical music:
+    // Mandra Saptak = lower octave (usually octave 3)
+    // Madhya Saptak = middle octave (usually octave 4)
+    // Taar Saptak = higher octave (usually octave 5)
+    let saptak: 'Mandra' | 'Madhya' | 'Taar' = 'Madhya';
+    
+    if (octave <= 3) {
+      saptak = 'Mandra';
+    } else if (octave === 4) {
+      saptak = 'Madhya';
+    } else {
+      saptak = 'Taar';
+    }
+    
     return {
       note: swar,
       octave,
+      saptak,
       isClean
     };
   }
@@ -244,6 +261,11 @@ class AudioProcessor {
   }
 
   private westernToIndianSwar(westernNote: string): string {
+    // Add null check for westernNote
+    if (!westernNote || typeof westernNote !== 'string') {
+      return 'Sa'; // Default to Sa if no valid note is detected
+    }
+    
     // Get the base note without sharp/flat
     const baseNote = westernNote.charAt(0);
     

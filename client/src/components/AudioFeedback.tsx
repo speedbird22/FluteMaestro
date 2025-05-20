@@ -70,8 +70,10 @@ const AudioFeedback: React.FC<AudioFeedbackProps> = ({ audioState }) => {
               </span>
             </div>
             <div className="flex items-center justify-center mt-4">
-              <span className="text-sm mr-2">Octave:</span>
-              <span id="octave-indicator" className="font-mono text-lg font-bold">{audioState.currentOctave}</span>
+              <span className="text-sm mr-2">Saptak:</span>
+              <span id="saptak-indicator" className="font-mono text-lg font-bold">
+                {audioState.currentSaptak} ({audioState.currentOctave})
+              </span>
             </div>
           </div>
           
