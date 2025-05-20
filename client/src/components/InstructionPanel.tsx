@@ -20,7 +20,7 @@ const InstructionPanel: React.FC = () => {
           </div>
           <div className="flex items-start">
             <div className="h-6 w-6 rounded-full bg-primary-light flex items-center justify-center text-white text-sm mr-3">4</div>
-            <p>Note color indicates clarity: <span className="text-green-500 font-medium">green</span> for clear notes, <span className="text-yellow-500 font-medium">yellow</span> for somewhat clear, and <span className="text-red-500 font-medium">red</span> for unclear notes</p>
+            <p>Note color indicates clarity: <span style={{ color: '#22c55e', fontWeight: 500 }}>green</span> for professional-level clear notes, <span style={{ color: '#f59e0b', fontWeight: 500 }}>yellow</span> for acceptable clarity, and <span style={{ color: '#ef4444', fontWeight: 500 }}>red</span> for notes requiring adjustment</p>
           </div>
         </div>
         

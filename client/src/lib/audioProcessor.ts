@@ -79,7 +79,7 @@ class AudioProcessor {
   }
 
   private lastProcessingTime: number = 0;
-  private processingInterval: number = 10; // 10ms = 0.01 seconds, as requested
+  private processingInterval: number = 50; // 50ms = 0.05 seconds, further decreased resolution
 
   private processAudio = (): void => {
     if (!this.isProcessing || !this.analyser) {
@@ -250,16 +250,16 @@ class AudioProcessor {
     // Convert western note to Indian swar based on selected scale
     const swar = this.westernToIndianSwar(note);
     
-    // Note clarity levels:
-    // 1. "clear" (green): cents deviation is small (< 15 cents)
-    // 2. "somewhat" (yellow): cents deviation is moderate (15-30 cents)
-    // 3. "unclear" (red): cents deviation is large (> 30 cents)
+    // Note clarity levels - higher thresholds to better accommodate professionals:
+    // 1. "clear" (green): cents deviation is small (< 25 cents)
+    // 2. "somewhat" (yellow): cents deviation is moderate (25-45 cents)
+    // 3. "unclear" (red): cents deviation is large (> 45 cents)
     let clarity: 'clear' | 'somewhat' | 'unclear' = 'unclear';
     const centsDev = Math.abs(cents);
     
-    if (centsDev < 15) {
+    if (centsDev < 25) {
       clarity = 'clear';
-    } else if (centsDev < 30) {
+    } else if (centsDev < 45) {
       clarity = 'somewhat';
     } else {
       clarity = 'unclear';
@@ -330,8 +330,8 @@ class AudioProcessor {
   private lastNote: string = '';
   private lastOctave: number = 4;
   private lastNoteTimestamp: number = 0;
-  private stableThreshold: number = 30; // cents threshold for note stability
-  private stabilityDelay: number = 50; // ms to require before changing notes
+  private stableThreshold: number = 40; // increased cents threshold for note stability - better for professionals
+  private stabilityDelay: number = 100; // increased ms to require before changing notes - more stable display
   
   private getStableNote(note: string, cents: number, octave: number): { note: string, cents: number, octave: number } {
     const now = Date.now();
@@ -363,6 +363,7 @@ class AudioProcessor {
   // Cache for stable swar detection
   private lastSwar: string = 'Sa';
   private lastSwarTimestamp: number = 0;
+  private swarStabilityDelay: number = 250; // Much longer stability delay for Swar changes - better for professional flutists
   
   private westernToIndianSwar(westernNote: string): string {
     // Add null check for westernNote
@@ -421,14 +422,20 @@ class AudioProcessor {
     // Get the Indian swar
     const currentSwar = swarMapping[relativeIndex] || 'Sa';
     
-    // Implement stability - if changing too rapidly, keep previous swar
-    if (now - this.lastSwarTimestamp < 150 && this.lastSwar) {
+    // Implement stronger stability - if changing too rapidly, keep previous swar
+    // Professional flutists often transition between notes with subtle techniques
+    if (now - this.lastSwarTimestamp < this.swarStabilityDelay && this.lastSwar) {
       return this.lastSwar;
+    }
+    
+    // Don't update timestamp for transition notes (komal/tivra) to make them less "sticky"
+    // This helps professionals who might briefly pass through these notes
+    if (!currentSwar.includes('♭') && !currentSwar.includes('♯')) {
+      this.lastSwarTimestamp = now;
     }
     
     // Update the cache for stability
     this.lastSwar = currentSwar;
-    this.lastSwarTimestamp = now;
     
     return currentSwar;
   }

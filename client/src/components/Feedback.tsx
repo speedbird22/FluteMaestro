@@ -13,9 +13,10 @@ const Feedback: React.FC = () => {
           <div>
             <h3 className="font-medium mb-1">Hindustani Flute Practice Tips</h3>
             <div className="space-y-2 text-sm">
-              <p>Focus on achieving a stable green indicator for each swar before moving to the next. Try to maintain consistent breath control for clearer notes.</p>
-              <p>Start with the <span className="font-medium">Madhya Saptak</span> (middle octave) before attempting the higher <span className="font-medium">Taar Saptak</span> or lower <span className="font-medium">Mandra Saptak</span>.</p>
-              <p>Practice the Sa-Re-Ga-Ma-Pa-Dha-Ni-Sa sequence slowly in each saptak to develop proper tone and pitch control.</p>
+              <p>For beginners: Focus on achieving consistent breath control. Yellow or green indicators show you're on the right path.</p>
+              <p>For advanced players: The system is calibrated to identify professional-level intonation with green indicators. Yellow is still acceptable for many traditional performances.</p>
+              <p>Start in <span className="font-medium">Madhya Saptak</span> (middle octave) to develop proper technique before exploring <span className="font-medium">Taar Saptak</span> (higher) or <span className="font-medium">Mandra Saptak</span> (lower).</p>
+              <p>Practice the Sa-Re-Ga-Ma-Pa-Dha-Ni-Sa sequence in each saptak, gradually increasing speed while maintaining accuracy.</p>
             </div>
           </div>
         </div>
