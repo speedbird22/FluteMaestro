@@ -5,7 +5,7 @@ import ControlPanel from '@/components/ControlPanel';
 import AudioFeedback from '@/components/AudioFeedback';
 import InstructionPanel from '@/components/InstructionPanel';
 import Feedback from '@/components/Feedback';
-import AudioProcessor from '@/lib/audioProcessor';
+import SimpleAudioProcessor from '@/lib/simpleAudio';
 import { AudioState } from '@/types';
 import { AlertCircle, Volume2, VolumeX } from 'lucide-react';
 
@@ -24,7 +24,7 @@ const Home: React.FC = () => {
   });
 
   // Create audio processor
-  const [audioProcessor, setAudioProcessor] = useState<AudioProcessor | null>(null);
+  const [audioProcessor, setAudioProcessor] = useState<SimpleAudioProcessor | null>(null);
   
   // Track sound detection
   const [hasSound, setHasSound] = useState(false);
@@ -41,8 +41,8 @@ const Home: React.FC = () => {
 
   // Initialize audio processor
   useEffect(() => {
-    const processor = new AudioProcessor(
-      (newState) => {
+    const processor = new SimpleAudioProcessor(
+      (newState: Partial<AudioState>) => {
         setAudioState(prevState => {
           // Update sound detection status
           if (newState.currentFrequency && newState.currentFrequency > 0) {

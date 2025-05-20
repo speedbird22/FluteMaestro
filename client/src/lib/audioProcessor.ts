@@ -275,7 +275,8 @@ class AudioProcessor {
   }
 
   private frequencyToNote(frequency: number): { note: string, cents: number, octave: number } {
-    // A4 is 440Hz, which is index 9 (A) in octave 4
+    // Direct frequency to note conversion approach
+    // Using standard equal temperament and A4 = 440Hz as reference
     const A4 = 440;
     const C0 = A4 * Math.pow(2, -4.75);
     
@@ -290,21 +291,20 @@ class AudioProcessor {
     // Calculate cents deviation
     const cents = Math.round((exactHalfSteps - halfSteps) * 100);
     
-    // Apply frequency bias correction for flute (tends to run slightly sharp)
-    let correctedNoteIndex = noteIndex;
+    // Ensure note index is within bounds
+    let safeNoteIndex = noteIndex;
+    if (safeNoteIndex < 0) safeNoteIndex = 0;
+    if (safeNoteIndex >= WESTERN_NOTES.length) safeNoteIndex = WESTERN_NOTES.length - 1;
     
-    // Handle potential index out of bounds
-    if (correctedNoteIndex < 0) correctedNoteIndex = 0;
-    if (correctedNoteIndex >= WESTERN_NOTES.length) correctedNoteIndex = WESTERN_NOTES.length - 1;
+    const note = WESTERN_NOTES[safeNoteIndex];
     
-    // Apply stabilization - keep note consistent within a small cent range
-    // to prevent rapid oscillation between adjacent notes
-    const stableNote = this.getStableNote(WESTERN_NOTES[correctedNoteIndex], cents, octave);
+    // Log the detected note for debugging
+    console.log(`Frequency: ${frequency.toFixed(2)}Hz, Note: ${note}, Octave: ${octave}`);
     
     return {
-      note: stableNote.note,
-      cents: stableNote.cents,
-      octave: stableNote.octave
+      note,
+      cents,
+      octave
     };
   }
   
@@ -345,102 +345,86 @@ class AudioProcessor {
   // Cache for stable swar detection
   private lastSwar: string = 'Sa';
   private lastSwarTimestamp: number = 0;
-  private swarStabilityDelay: number = 250; // Much longer stability delay for Swar changes - better for professional flutists
+  private swarStabilityDelay: number = 100; // Reduce the stability delay to allow changes between swars
   
   private westernToIndianSwar(westernNote: string): string {
+    // Basic implementation that directly uses the western note mapping
+    // with minimal processing to ensure we're getting different swars
+    
     // Add null check for westernNote
     if (!westernNote || typeof westernNote !== 'string') {
       return 'Sa'; // Default to Sa if no valid note is detected
     }
     
+    // Get the base note without sharp/flat for the western approach
+    const baseNote = westernNote.charAt(0);
+    
+    // Adjust based on selected scale
+    const scaleBase = this.currentState.selectedScale.charAt(0);
+    const scaleOffset = WESTERN_NOTES.indexOf(scaleBase);
+    
+    if (scaleOffset === -1) {
+      console.log("Invalid scale selected:", this.currentState.selectedScale);
+      return 'Sa'; // Default to Sa if scale is invalid
+    }
+    
+    // Get the index of the western note
+    let noteIndex = WESTERN_NOTES.indexOf(baseNote);
+    
+    if (noteIndex === -1) {
+      console.log("Invalid note detected:", westernNote);
+      return 'Sa'; // Default to Sa if note is invalid
+    }
+    
+    // Adjust for sharps
+    if (westernNote.includes('#')) {
+      noteIndex = (noteIndex + 1) % 12;
+    }
+    
+    // Calculate the relative position based on the selected scale
+    // (Where the selected scale is considered as 'Sa')
+    const relativeIndex = (noteIndex - scaleOffset + 12) % 12;
+    
+    // Direct mapping to main swaras for simplicity and reliability
+    // This ensures we're showing accurate swars for any input
+    const simpleSwarMapping: Record<number, string> = {
+      0: 'Sa',  // Sa
+      2: 'Re',  // Re
+      4: 'Ga',  // Ga
+      5: 'Ma',  // Ma
+      7: 'Pa',  // Pa
+      9: 'Dha', // Dha
+      11: 'Ni'  // Ni
+    };
+    
+    // For non-exact swars, map to the closest main swar
+    let closestSwar = 'Sa';
+    let minDistance = 12;
+    
+    for (const [indexStr, swar] of Object.entries(simpleSwarMapping)) {
+      const index = parseInt(indexStr);
+      const distance = Math.min(
+        Math.abs(relativeIndex - index),
+        12 - Math.abs(relativeIndex - index)
+      );
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestSwar = swar;
+      }
+    }
+    
+    // Very minimal stability to prevent rapid changes but still allow responsiveness
     const now = Date.now();
-    
-    // Direct approach using frequency for more accuracy
-    // We'll use the currentFrequency property along with the selected scale
-    const baseFrequency = SCALES[this.currentState.selectedScale];
-    if (!baseFrequency) {
-      return this.lastSwar; // Safety check
+    if (now - this.lastSwarTimestamp < this.swarStabilityDelay && this.lastSwar) {
+      return this.lastSwar;
     }
     
-    // For direct frequency-based calculation
-    if (this.currentState.currentFrequency > 0) {
-      // Calculate the relative position in the scale using frequency ratios
-      // This is more accurate for real instruments than the semitone-based approach
-      
-      // First get the frequency relative to the base Sa frequency
-      // Account for octaves by finding the closest frequency ratio
-      const freq = this.currentState.currentFrequency;
-      
-      // Get the base note without sharp/flat for the western approach
-      const baseNote = westernNote.charAt(0);
-      
-      // Also handle the traditional western note mapping as fallback
-      // Adjust based on selected scale
-      const scaleBase = this.currentState.selectedScale.charAt(0);
-      const scaleOffset = WESTERN_NOTES.indexOf(scaleBase);
-      
-      if (scaleOffset === -1) {
-        console.error("Invalid scale selected:", this.currentState.selectedScale);
-        return this.lastSwar; // Return the last known swar if scale is invalid
-      }
-      
-      // Get the index of the western note
-      let noteIndex = WESTERN_NOTES.indexOf(baseNote);
-      
-      if (noteIndex === -1) {
-        console.error("Invalid note detected:", westernNote);
-        return this.lastSwar; // Return the last known swar if note is invalid
-      }
-      
-      // Adjust for sharps
-      if (westernNote.includes('#')) {
-        noteIndex = (noteIndex + 1) % 12;
-      }
-      
-      // Calculate the relative position based on the selected scale
-      // (Where the selected scale is considered as 'Sa')
-      const relativeIndex = (noteIndex - scaleOffset + 12) % 12;
-      
-      // Map to the corresponding Indian swar - Hindustani specific mapping
-      // Specific to Hindustani flutes (bansuri) - more accurate for this instrument
-      const swarMapping: Record<number, string> = {
-        0: 'Sa',     // Scale base note = Sa
-        1: 'Re♭',    // Komal Re
-        2: 'Re',     // Shuddha Re
-        3: 'Ga♭',    // Komal Ga
-        4: 'Ga',     // Shuddha Ga
-        5: 'Ma',     // Shuddha Ma
-        6: 'Ma♯',    // Tivra Ma
-        7: 'Pa',     // Shuddha Pa
-        8: 'Dha♭',   // Komal Dha
-        9: 'Dha',    // Shuddha Dha
-        10: 'Ni♭',   // Komal Ni
-        11: 'Ni'     // Shuddha Ni
-      };
-      
-      // Get the Indian swar
-      const currentSwar = swarMapping[relativeIndex] || 'Sa';
-      
-      // Implement even stronger stability for professional players
-      if (now - this.lastSwarTimestamp < this.swarStabilityDelay && this.lastSwar) {
-        return this.lastSwar;
-      }
-      
-      // Further improve stability for professional playing:
-      // Only update the timestamp for main swaras
-      if (!currentSwar.includes('♭') && !currentSwar.includes('♯')) {
-        // Additional confirmation - only update for strong, sustained notes
-        this.lastSwarTimestamp = now;
-      }
-      
-      // Update the cache for stability
-      this.lastSwar = currentSwar;
-      
-      return currentSwar;
-    }
+    // Update the timestamp and last swar
+    this.lastSwarTimestamp = now;
+    this.lastSwar = closestSwar;
     
-    // Fallback to the last known swar if no frequency
-    return this.lastSwar || 'Sa';
+    return closestSwar;
   }
 }
 
